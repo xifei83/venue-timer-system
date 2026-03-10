@@ -1531,6 +1531,12 @@
         // 保存数据到云端
         async function saveDataToCloud(collectionName, data) {
             try {
+                console.log('=== 开始保存到云端 ===');
+                console.log('cloudInitialized:', cloudInitialized);
+                console.log('db:', db);
+                console.log('currentSystem:', currentSystem);
+                console.log('systemConfig:', systemConfig);
+
                 if (!cloudInitialized || !db) {
                     console.warn('云数据库未初始化');
                     return null;
@@ -1538,20 +1544,18 @@
 
                 const config = systemConfig[currentSystem];
                 console.log(`准备保存到云端${collectionName}:`, { collectionName, data, systemName: config.name });
-                const result = await db.collection(collectionName).add({
+
+                const collection = db.collection(collectionName);
+                console.log('collection 对象:', collection);
+
+                const result = await collection.add({
                     ...data,
                     systemName: config.name
                 });
                 console.log(`数据已保存到云端${collectionName}:`, result, 'result.id:', result?.id, 'result:', JSON.stringify(result));
                 return result;
             } catch (error) {
-                // 检查是否是 CORS 错误
-                if (error.message && error.message.includes('CORS')) {
-                    console.error('CORS 错误：无法同步到云端');
-                    // 不重复显示提示，只在 getDataFromCloud 中显示一次
-                } else {
-                    console.error(`保存数据到云端${collectionName}失败:`, error);
-                }
+                console.error(`保存数据到云端${collectionName}异常:`, error);
                 return null;
             }
         }
