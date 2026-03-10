@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>场地计时计费系统</title>
-    <!-- 腾讯云 CloudBase SDK v1.10.10 (本地文件) -->
-    <script src="tcb.js"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- 腾讯云 CloudBase SDK v1.10.10 -->
+    <script src="https://imgcache.qq.com/qcloud/tcbjs/1.10.10/tcb.js"></script>
     <style>
         * {
             margin: 0;
@@ -1527,7 +1530,9 @@
         let app = null; // CloudBase 应用实例
         let cloudInitialized = false; // 云数据库是否初始化
         let useCloud = true; // 是否使用云数据库
-        const ENV_ID = 'venue-timer-9gpg4ho7f667d5d8'; // 腾讯云环境ID
+        // Supabase 配置
+        const SUPABASE_URL = 'https://your-project-id.supabase.co'; // 替换为你的 Supabase 项目 URL
+        const SUPABASE_ANON_KEY = 'your-anon-key-here'; // 替换为你的 Supabase 匿名密钥
 
         // CloudBase 邮箱登录配置
         const CLOUDBASE_USER = {
@@ -1557,50 +1562,71 @@
         // 初始化云数据库（腾讯云 CloudBase v2）
         async function initCloudBase() {
             try {
-                // 检查 tcb 是否已加载
-                if (typeof tcb === 'undefined') {
-                    console.warn('CloudBase SDK 未加载，将使用本地存储模式');
-                    console.error('SDK 加载失败，请检查网络或 CDN 是否正常');
-                    alert('CloudBase SDK 加载失败。\n可能原因：\n1. 网络问题，无法访问 CDN\n2. 浏览器拦截了脚本\n\n系统将使用本地存储模式。');
-                    useCloud = false;
-                    return false;
-                }
+                // 优先尝试使用 CloudBase
+                if (typeof tcb !== 'undefined') {
+                    console.log('正在初始化 CloudBase...');
 
-                console.log('正在初始化 CloudBase...');
+                    // 检查是否已配置 CloudBase
+                    const ENV_ID = 'venue-timer-9gpg4ho7f667d5d8'; // 腾讯云环境ID
 
-                // 初始化 CloudBase（v1.10.10）
-                app = tcb.init({
-                    env: ENV_ID
-                });
-
-                // 匿名登录（v1.10.10 用法）
-                try {
-                    await app.auth({
-                        persistence: "local"
+                    // 初始化 CloudBase
+                    app = tcb.init({
+                        env: ENV_ID
                     });
-                    console.log('匿名登录成功！');
-                } catch (loginError) {
-                    console.error('匿名登录失败:', loginError);
-                    console.error('错误代码:', loginError.code);
-                    console.error('错误信息:', loginError.message);
 
-                    if (loginError.code === 'ACCESS_TOKEN_DISABLED') {
-                        alert('匿名登录失败：ACCESS_TOKEN_DISABLED\n\n请在腾讯云控制台确认：\n1. 已启用"匿名登录"功能\n2. 数据库权限已设置为自定义规则 {"read": true, "write": true}\n3. 安全来源已添加：xifei83.github.io\n\n系统将使用本地存储模式。');
-                    } else {
-                        alert('匿名登录失败：' + loginError.message + '\n\n系统将使用本地存储模式。');
+                    // 匿名登录（v1.7.1）
+                    try {
+                        await app.auth({
+                            persistence: "local"
+                        });
+                        console.log('CloudBase 匿名登录成功！');
+
+                        // 获取数据库引用
+                        db = app.database();
+                        cloudInitialized = true;
+                        console.log('CloudBase 初始化成功，环境ID:', ENV_ID);
+                        return true;
+                    } catch (loginError) {
+                        console.error('CloudBase 匿名登录失败:', loginError);
+                        console.warn('CloudBase 登录失败，将尝试使用本地存储模式');
                     }
-                    useCloud = false;
-                    return false;
                 }
 
-                // 获取数据库引用
-                db = app.database();
-                cloudInitialized = true;
-                console.log('CloudBase 初始化成功，环境ID:', ENV_ID);
-                return true;
+                // 如果 CloudBase 不可用，尝试 Supabase
+                if (typeof supabase !== 'undefined') {
+                    console.log('正在初始化 Supabase...');
+
+                    // 检查是否已配置 Supabase
+                    if (SUPABASE_URL === 'https://your-project-id.supabase.co' || SUPABASE_ANON_KEY === 'your-anon-key-here') {
+                        console.warn('Supabase 配置未完成');
+                    } else {
+                        try {
+                            // 初始化 Supabase
+                            app = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+                            // 测试连接
+                            const { error } = await app.from('venue_data').select('count').limit(1);
+                            if (error && error.code !== 'PGRST116') { // PGRST116 表示表不存在，这是正常的
+                                throw error;
+                            }
+
+                            cloudInitialized = true;
+                            console.log('Supabase 初始化成功');
+                            return true;
+                        } catch (error) {
+                            console.error('Supabase 初始化失败:', error);
+                        }
+                    }
+                }
+
+                // 都失败则使用本地存储
+                console.warn('所有云服务初始化失败，将使用本地存储模式');
+                alert('云服务初始化失败。\n系统将使用本地存储模式。');
+                useCloud = false;
+                return false;
             } catch (error) {
-                console.error('CloudBase 初始化失败:', error);
-                alert('CloudBase 连接失败，将使用本地存储模式\n错误信息: ' + error.message);
+                console.error('云服务初始化失败:', error);
+                alert('云服务连接失败，将使用本地存储模式\n错误信息: ' + error.message);
                 useCloud = false;
                 return false;
             }
@@ -1609,57 +1635,120 @@
         // 从云端获取数据（CloudBase v2）
         async function getDataFromCloud(collectionName, systemName) {
             try {
-                if (!cloudInitialized || !db) {
+                if (!cloudInitialized) {
                     console.warn('云数据库未初始化');
                     return [];
                 }
 
-                const result = await db.collection(collectionName)
-                    .where({
-                        systemName: systemName
-                    })
-                    .get();
-                const data = result.data || [];
-                console.log(`从云端获取${collectionName}数据:`, data.length, '条');
-                return data;
+                // 使用 CloudBase
+                if (typeof tcb !== 'undefined' && db) {
+                    const result = await db.collection(collectionName)
+                        .where({
+                            systemName: systemName
+                        })
+                        .get();
+                    const data = result.data || [];
+                    console.log(`从 CloudBase 获取${collectionName}数据:`, data.length, '条');
+                    return data;
+                }
+
+                // 使用 Supabase
+                if (typeof supabase !== 'undefined' && app) {
+                    const { data, error } = await app
+                        .from(collectionName)
+                        .select('*')
+                        .eq('systemName', systemName);
+
+                    if (error) throw error;
+
+                    const resultData = data || [];
+                    console.log(`从 Supabase 获取${collectionName}数据:`, resultData.length, '条');
+                    return resultData;
+                }
+
+                console.warn('无可用的云服务');
+                return [];
             } catch (error) {
                 console.error(`从云端获取${collectionName}数据失败:`, error);
                 return [];
             }
         }
 
-        // 保存数据到云端（CloudBase v2）
+        // 保存数据到云端
         async function saveDataToCloud(collectionName, data) {
             try {
-                if (!cloudInitialized || !db) {
+                if (!cloudInitialized) {
                     console.warn('云数据库未初始化');
                     return null;
                 }
 
-                const config = systemConfig[currentSystem];
-                const result = await db.collection(collectionName).add({
-                    ...data,
-                    systemName: config.name
-                });
-                console.log(`数据已保存到云端${collectionName}:`, result.id);
-                return result;
+                // 使用 CloudBase
+                if (typeof tcb !== 'undefined' && db) {
+                    const config = systemConfig[currentSystem];
+                    const result = await db.collection(collectionName).add({
+                        ...data,
+                        systemName: config.name
+                    });
+                    console.log(`数据已保存到 CloudBase ${collectionName}:`, result.id);
+                    return result;
+                }
+
+                // 使用 Supabase
+                if (typeof supabase !== 'undefined' && app) {
+                    const config = systemConfig[currentSystem];
+                    const { data: result, error } = await app
+                        .from(collectionName)
+                        .insert({
+                            ...data,
+                            systemName: config.name
+                        })
+                        .select();
+
+                    if (error) throw error;
+
+                    console.log(`数据已保存到 Supabase ${collectionName}:`, result[0].id);
+                    return result[0];
+                }
+
+                console.warn('无可用的云服务');
+                return null;
             } catch (error) {
                 console.error(`保存数据到云端${collectionName}失败:`, error);
                 return null;
             }
         }
 
-        // 更新云端数据（CloudBase v2）
+        // 更新云端数据
         async function updateDataInCloud(collectionName, id, data) {
             try {
-                if (!cloudInitialized || !db) {
+                if (!cloudInitialized) {
                     console.warn('云数据库未初始化');
                     return null;
                 }
 
-                const config = systemConfig[currentSystem];
-                const result = await db.collection(collectionName)
-                    .doc(id)
+                // 使用 CloudBase
+                if (typeof tcb !== 'undefined' && db) {
+                    const config = systemConfig[currentSystem];
+                    const result = await db.collection(collectionName)
+                        .doc(id)
+                        .update({
+                            ...data
+                        });
+                    console.log(`CloudBase 数据已更新${collectionName}:`, id);
+                    return result;
+                }
+
+                // 使用 Supabase
+                if (typeof supabase !== 'undefined' && app) {
+                    const config = systemConfig[currentSystem];
+                    const { data: result, error } = await app
+                        .from(collectionName)
+                        .update(data)
+                        .eq('id', id)
+                        .eq('systemName', config.name)
+                        .select();
+
+                    if (error) throw error;
                     .update({
                         ...data,
                         systemName: config.name
@@ -1675,16 +1764,35 @@
         // 删除云端数据（CloudBase v2）
         async function deleteDataFromCloud(collectionName, id) {
             try {
-                if (!cloudInitialized || !db) {
+                if (!cloudInitialized) {
                     console.warn('云数据库未初始化');
                     return null;
                 }
 
-                const result = await db.collection(collectionName)
-                    .doc(id)
-                    .remove();
-                console.log(`云端数据已删除${collectionName}:`, id);
-                return result;
+                // 使用 CloudBase
+                if (typeof tcb !== 'undefined' && db) {
+                    const result = await db.collection(collectionName)
+                        .doc(id)
+                        .remove();
+                    console.log(`CloudBase 数据已删除${collectionName}:`, id);
+                    return result;
+                }
+
+                // 使用 Supabase
+                if (typeof supabase !== 'undefined' && app) {
+                    const { error } = await app
+                        .from(collectionName)
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+
+                    console.log(`Supabase 数据已删除${collectionName}:`, id);
+                    return true;
+                }
+
+                console.warn('无可用的云服务');
+                return null;
             } catch (error) {
                 console.error(`删除云端数据${collectionName}失败:`, error);
                 return null;
