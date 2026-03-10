@@ -1562,24 +1562,16 @@
 
                 console.log('正在初始化 CloudBase...');
 
-                // 初始化 CloudBase
+                // 初始化 CloudBase（不登录，使用匿名访问）
                 app = tcb.init({
                     env: ENV_ID
                 });
-
-                // 匿名登录
-                try {
-                    await app.auth().anonymousAuthProvider().signIn();
-                    console.log('匿名登录成功');
-                } catch (loginError) {
-                    console.warn('匿名登录失败:', loginError);
-                    console.warn('注意：请在腾讯云控制台启用"匿名登录"功能');
-                }
 
                 // 获取数据库引用
                 db = app.database();
                 cloudInitialized = true;
                 console.log('CloudBase 初始化成功，环境ID:', ENV_ID);
+                console.log('注意：使用自定义规则 {"read": true, "write": true} 即可无需登录访问');
                 return true;
             } catch (error) {
                 console.error('CloudBase 初始化失败:', error);
