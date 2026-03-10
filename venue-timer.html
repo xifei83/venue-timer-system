@@ -1537,11 +1537,12 @@
                 }
 
                 const config = systemConfig[currentSystem];
+                console.log(`准备保存到云端${collectionName}:`, { collectionName, data, systemName: config.name });
                 const result = await db.collection(collectionName).add({
                     ...data,
                     systemName: config.name
                 });
-                console.log(`数据已保存到云端${collectionName}:`, result.id);
+                console.log(`数据已保存到云端${collectionName}:`, result, 'result.id:', result?.id, 'result:', JSON.stringify(result));
                 return result;
             } catch (error) {
                 // 检查是否是 CORS 错误
