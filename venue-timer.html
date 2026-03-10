@@ -1564,6 +1564,15 @@
                     env: ENV_ID
                 });
 
+                // 匿名登录
+                try {
+                    const auth = app.auth();
+                    await auth.anonymousAuthProvider().signIn();
+                    console.log('匿名登录成功');
+                } catch (loginError) {
+                    console.warn('匿名登录失败:', loginError);
+                }
+
                 db = app.database();
                 cloudInitialized = true;
                 console.log('云数据库初始化成功，环境ID:', ENV_ID);
