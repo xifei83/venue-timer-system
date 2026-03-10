@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>场地计时计费系统</title>
-    <!-- 腾讯云 CloudBase SDK v2.10.6 -->
-    <script src="https://unpkg.com/@cloudbase/js-sdk@2.10.6/dist/tcb.js"></script>
+    <!-- 腾讯云 CloudBase SDK v1.10.10 (本地文件) -->
+    <script src="tcb.js"></script>
     <style>
         * {
             margin: 0;
@@ -1568,23 +1568,17 @@
 
                 console.log('正在初始化 CloudBase...');
 
-                // 初始化 CloudBase
+                // 初始化 CloudBase（v1.10.10）
                 app = tcb.init({
                     env: ENV_ID
                 });
 
-                // 匿名登录（正确用法）
+                // 匿名登录（v1.10.10 用法）
                 try {
-                    const auth = app.auth({ persistence: "local" });
-                    const loginState = await auth.getLoginState();
-
-                    if (!loginState) {
-                        console.log('未登录，尝试匿名登录...');
-                        await auth.anonymousAuthProvider().signIn();
-                        console.log('匿名登录成功！');
-                    } else {
-                        console.log('已登录，使用现有登录状态');
-                    }
+                    await app.auth({
+                        persistence: "local"
+                    });
+                    console.log('匿名登录成功！');
                 } catch (loginError) {
                     console.error('匿名登录失败:', loginError);
                     console.error('错误代码:', loginError.code);
