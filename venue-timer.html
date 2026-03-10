@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>场地计时计费系统</title>
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <!-- 腾讯云 CloudBase SDK v1.10.10 -->
     <script src="https://imgcache.qq.com/qcloud/tcbjs/1.10.10/tcb.js"></script>
     <style>
@@ -1562,71 +1559,53 @@
         // 初始化云数据库（腾讯云 CloudBase v2）
         async function initCloudBase() {
             try {
-                // 优先尝试使用 CloudBase
-                if (typeof tcb !== 'undefined') {
-                    console.log('正在初始化 CloudBase...');
+                // 检查 tcb 是否已加载
+                if (typeof tcb === 'undefined') {
+                    console.warn('CloudBase SDK 未加载，将使用本地存储模式');
+                    console.error('SDK 加载失败，请检查网络或 CDN 是否正常');
+                    alert('CloudBase SDK 加载失败。\n可能原因：\n1. 网络问题，无法访问 CDN\n2. 浏览器拦截了脚本\n\n系统将使用本地存储模式。');
+                    useCloud = false;
+                    return false;
+                }
 
-                    // 检查是否已配置 CloudBase
-                    const ENV_ID = 'venue-timer-9gpg4ho7f667d5d8'; // 腾讯云环境ID
+                console.log('正在初始化 CloudBase...');
 
-                    // 初始化 CloudBase
-                    app = tcb.init({
-                        env: ENV_ID
+                // CloudBase 环境ID
+                const ENV_ID = 'venue-timer-9gpg4ho7f667d5d8';
+
+                // 初始化 CloudBase
+                app = tcb.init({
+                    env: ENV_ID
+                });
+
+                // 匿名登录
+                try {
+                    await app.auth({
+                        persistence: "local"
                     });
+                    console.log('匿名登录成功！');
+                } catch (loginError) {
+                    console.error('匿名登录失败:', loginError);
+                    console.error('错误代码:', loginError.code);
+                    console.error('错误信息:', loginError.message);
 
-                    // 匿名登录（v1.7.1）
-                    try {
-                        await app.auth({
-                            persistence: "local"
-                        });
-                        console.log('CloudBase 匿名登录成功！');
-
-                        // 获取数据库引用
-                        db = app.database();
-                        cloudInitialized = true;
-                        console.log('CloudBase 初始化成功，环境ID:', ENV_ID);
-                        return true;
-                    } catch (loginError) {
-                        console.error('CloudBase 匿名登录失败:', loginError);
-                        console.warn('CloudBase 登录失败，将尝试使用本地存储模式');
-                    }
-                }
-
-                // 如果 CloudBase 不可用，尝试 Supabase
-                if (typeof supabase !== 'undefined') {
-                    console.log('正在初始化 Supabase...');
-
-                    // 检查是否已配置 Supabase
-                    if (SUPABASE_URL === 'https://your-project-id.supabase.co' || SUPABASE_ANON_KEY === 'your-anon-key-here') {
-                        console.warn('Supabase 配置未完成');
+                    if (loginError.code === 'ACCESS_TOKEN_DISABLED') {
+                        alert('匿名登录失败：ACCESS_TOKEN_DISABLED\n\n请在腾讯云控制台确认：\n1. 已启用"匿名登录"功能\n2. 数据库权限已设置为自定义规则 {"read": true, "write": true}\n3. 跨域校验已关闭\n\n系统将使用本地存储模式。');
                     } else {
-                        try {
-                            // 初始化 Supabase
-                            app = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-                            // 测试连接
-                            const { error } = await app.from('venue_data').select('count').limit(1);
-                            if (error && error.code !== 'PGRST116') { // PGRST116 表示表不存在，这是正常的
-                                throw error;
-                            }
-
-                            cloudInitialized = true;
-                            console.log('Supabase 初始化成功');
-                            return true;
-                        } catch (error) {
-                            console.error('Supabase 初始化失败:', error);
-                        }
+                        alert('匿名登录失败：' + loginError.message + '\n\n系统将使用本地存储模式。');
                     }
+                    useCloud = false;
+                    return false;
                 }
 
-                // 都失败则使用本地存储
-                console.warn('所有云服务初始化失败，将使用本地存储模式');
-                alert('云服务初始化失败。\n系统将使用本地存储模式。');
-                useCloud = false;
-                return false;
+                // 获取数据库引用
+                db = app.database();
+                cloudInitialized = true;
+                console.log('CloudBase 初始化成功，环境ID:', ENV_ID);
+                return true;
             } catch (error) {
-                console.error('云服务初始化失败:', error);
-                alert('云服务连接失败，将使用本地存储模式\n错误信息: ' + error.message);
+                console.error('CloudBase 初始化失败:', error);
+                alert('CloudBase 连接失败，将使用本地存储模式\n错误信息: ' + error.message);
                 useCloud = false;
                 return false;
             }
