@@ -600,12 +600,92 @@
             box-shadow: 0 10px 20px rgba(17, 153, 142, 0.4);
         }
 
-        .system-hidden {
-            display: none !important;
-        }
-    </style>
+    .system-hidden {
+        display: none !important;
+    }
+
+    /* 网站访问密码层 */
+    .site-password-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999 !important;
+    }
+
+    .site-password-box {
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        max-width: 400px;
+        width: 90%;
+    }
+
+    .site-password-box h1 {
+        color: #1a1a2e;
+        margin-bottom: 20px;
+        font-size: 28px;
+    }
+
+    .site-password-box p {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+    }
+
+    .site-password-box input[type="password"] {
+        width: 100%;
+        padding: 15px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        margin-bottom: 20px;
+        box-sizing: border-box;
+        transition: border-color 0.3s;
+    }
+
+    .site-password-box input[type="password"]:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .site-password-box button {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .site-password-box button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+</style>
 </head>
 <body>
+    <!-- 网站访问密码验证 -->
+    <div class="site-password-overlay" id="sitePasswordOverlay">
+        <div class="site-password-box">
+            <h1>🔐 访问验证</h1>
+            <p>请输入网站访问密码</p>
+            <input type="password" id="sitePasswordInput" placeholder="请输入访问密码">
+            <button onclick="verifySitePassword()">进入系统</button>
+        </div>
+    </div>
+
     <!-- 登录界面 -->
     <div class="login-container" id="loginContainer">
         <div class="login-box">
@@ -1447,6 +1527,9 @@
         let cloudInitialized = false; // 云数据库是否初始化
         let useCloud = true; // 是否使用云数据库
         const ENV_ID = 'venue-timer-9gpg4ho7f667d5d8'; // 腾讯云环境ID
+
+        // 网站访问密码
+        const SITE_PASSWORD = 'venue2026'; // 修改这个密码为你想要的密码
 
         // 系统配置
         const systemConfig = {
@@ -6239,6 +6322,35 @@
             localStorage.setItem(getStorageKey('lastSaveTime'), Date.now().toString());
             console.log('定期保存数据完成');
         }, 10000);
+
+        // 网站访问密码验证
+        function verifySitePassword() {
+            const inputPassword = document.getElementById('sitePasswordInput').value;
+            if (inputPassword === SITE_PASSWORD) {
+                // 验证成功，隐藏密码层
+                document.getElementById('sitePasswordOverlay').style.display = 'none';
+                // 清空密码输入
+                document.getElementById('sitePasswordInput').value = '';
+            } else {
+                alert('密码错误，请重新输入！');
+                document.getElementById('sitePasswordInput').value = '';
+                document.getElementById('sitePasswordInput').focus();
+            }
+        }
+
+        // 监听网站访问密码输入框的回车键
+        document.addEventListener('DOMContentLoaded', function() {
+            const sitePasswordInput = document.getElementById('sitePasswordInput');
+            if (sitePasswordInput) {
+                sitePasswordInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        verifySitePassword();
+                    }
+                });
+                // 自动聚焦到密码输入框
+                sitePasswordInput.focus();
+            }
+        });
 
         // 绑定事件监听器
         function bindEventListeners() {
