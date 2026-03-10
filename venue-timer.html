@@ -1504,8 +1504,9 @@
                         systemName: systemName
                     })
                     .get();
-                console.log(`从云端获取${collectionName}数据:`, result.data.length, '条');
-                return result.data;
+                const data = result.data || [];
+                console.log(`从云端获取${collectionName}数据:`, data.length, '条');
+                return data;
             } catch (error) {
                 // 检查是否是 CORS 错误
                 if (error.message && error.message.includes('CORS')) {
