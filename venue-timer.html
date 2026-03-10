@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>场地计时计费系统</title>
-    <!-- 腾讯云开发 CloudBase SDK v1.7.1 -->
-    <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/1.7.1/cloudbase.full.js"></script>
+    <!-- 腾讯云 CloudBase SDK v2.10.6 -->
+    <script src="https://imgcache.qq.com/qcloud/tcbjs/2.10.6/tcb.js"></script>
     <style>
         * {
             margin: 0;
@@ -1524,6 +1524,7 @@
 
         // 云数据库相关
         let db = null; // 数据库实例
+        let app = null; // CloudBase 应用实例
         let cloudInitialized = false; // 云数据库是否初始化
         let useCloud = true; // 是否使用云数据库
         const ENV_ID = 'venue-timer-9gpg4ho7f667d5d8'; // 腾讯云环境ID
@@ -1547,11 +1548,11 @@
 
         // ========== 云数据库相关函数 ==========
 
-        // 初始化云数据库
+        // 初始化云数据库（腾讯云 CloudBase v2）
         async function initCloudBase() {
             try {
-                // 检查 cloudbase 是否已加载
-                if (typeof cloudbase === 'undefined') {
+                // 检查 tcb 是否已加载
+                if (typeof tcb === 'undefined') {
                     console.warn('CloudBase SDK 未加载，将使用本地存储模式');
                     console.error('SDK 加载失败，请检查网络或 CDN 是否正常');
                     alert('CloudBase SDK 加载失败。\n可能原因：\n1. 网络问题，无法访问 CDN\n2. 浏览器拦截了脚本\n\n系统将使用本地存储模式。');
@@ -1559,33 +1560,36 @@
                     return false;
                 }
 
-                console.log('正在初始化云数据库...');
-                const app = cloudbase.init({
+                console.log('正在初始化 CloudBase...');
+
+                // 初始化 CloudBase
+                app = tcb.init({
                     env: ENV_ID
                 });
 
                 // 匿名登录
                 try {
-                    const auth = app.auth();
-                    await auth.anonymousAuthProvider().signIn();
+                    await app.auth().anonymousAuthProvider().signIn();
                     console.log('匿名登录成功');
                 } catch (loginError) {
                     console.warn('匿名登录失败:', loginError);
+                    console.warn('注意：请在腾讯云控制台启用"匿名登录"功能');
                 }
 
+                // 获取数据库引用
                 db = app.database();
                 cloudInitialized = true;
-                console.log('云数据库初始化成功，环境ID:', ENV_ID);
+                console.log('CloudBase 初始化成功，环境ID:', ENV_ID);
                 return true;
             } catch (error) {
-                console.error('云数据库初始化失败:', error);
-                alert('云数据库连接失败，将使用本地存储模式\n错误信息: ' + error.message);
+                console.error('CloudBase 初始化失败:', error);
+                alert('CloudBase 连接失败，将使用本地存储模式\n错误信息: ' + error.message);
                 useCloud = false;
                 return false;
             }
         }
 
-        // 从云端获取数据
+        // 从云端获取数据（CloudBase v2）
         async function getDataFromCloud(collectionName, systemName) {
             try {
                 if (!cloudInitialized || !db) {
@@ -1602,59 +1606,33 @@
                 console.log(`从云端获取${collectionName}数据:`, data.length, '条');
                 return data;
             } catch (error) {
-                // 检查是否是 CORS 错误
-                if (error.message && error.message.includes('CORS')) {
-                    console.error('CORS 错误：请使用 HTTP 服务器运行此页面');
-                    console.error('解决方法：');
-                    console.error('1. 使用 VS Code Live Server 扩展');
-                    console.error('2. 运行: python -m http.server 8080');
-                    console.error('3. 访问: http://localhost:8080/venue-timer.html');
-                    // 只在第一次错误时显示提示
-                    if (!window.corsErrorShown) {
-                        window.corsErrorShown = true;
-                        alert('无法连接到云数据库\n\n原因：CORS 跨域限制\n\n解决方法：\n1. 请使用 HTTP 服务器运行此页面\n2. 不要直接双击 HTML 文件打开\n3. 参考「使用说明.md」文件\n\n系统将使用本地存储模式');
-                        useCloud = false;
-                    }
-                } else {
-                    console.error(`从云端获取${collectionName}数据失败:`, error);
-                }
+                console.error(`从云端获取${collectionName}数据失败:`, error);
                 return [];
             }
         }
 
-        // 保存数据到云端
+        // 保存数据到云端（CloudBase v2）
         async function saveDataToCloud(collectionName, data) {
             try {
-                console.log('=== 开始保存到云端 ===');
-                console.log('cloudInitialized:', cloudInitialized);
-                console.log('db:', db);
-                console.log('currentSystem:', currentSystem);
-                console.log('systemConfig:', systemConfig);
-
                 if (!cloudInitialized || !db) {
                     console.warn('云数据库未初始化');
                     return null;
                 }
 
                 const config = systemConfig[currentSystem];
-                console.log(`准备保存到云端${collectionName}:`, { collectionName, data, systemName: config.name });
-
-                const collection = db.collection(collectionName);
-                console.log('collection 对象:', collection);
-
-                const result = await collection.add({
+                const result = await db.collection(collectionName).add({
                     ...data,
                     systemName: config.name
                 });
-                console.log(`数据已保存到云端${collectionName}:`, result, 'result.id:', result?.id, 'result:', JSON.stringify(result));
+                console.log(`数据已保存到云端${collectionName}:`, result.id);
                 return result;
             } catch (error) {
-                console.error(`保存数据到云端${collectionName}异常:`, error);
+                console.error(`保存数据到云端${collectionName}失败:`, error);
                 return null;
             }
         }
 
-        // 更新云端数据
+        // 更新云端数据（CloudBase v2）
         async function updateDataInCloud(collectionName, id, data) {
             try {
                 if (!cloudInitialized || !db) {
@@ -1677,7 +1655,7 @@
             }
         }
 
-        // 删除云端数据
+        // 删除云端数据（CloudBase v2）
         async function deleteDataFromCloud(collectionName, id) {
             try {
                 if (!cloudInitialized || !db) {
