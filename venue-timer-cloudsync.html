@@ -825,22 +825,35 @@
                     env: ENV_ID
                 });
 
-                // 匿名登录
+                // 匿名登录（使用新API）
                 try {
-                    await app.auth({
-                        persistence: "local"
-                    });
-                    console.log('CloudBase 匿名登录成功');
+                    const auth = app.auth();
+                    
+                    // 先检查是否已登录
+                    const loginState = await auth.getLoginState();
+                    if (loginState && loginState.isAnonymous) {
+                        console.log('CloudBase 已匿名登录:', loginState);
+                        cloudInitialized = true;
+                    } else {
+                        // 尝试匿名登录
+                        const loginResult = await auth.signInAnonymously();
+                        console.log('CloudBase 匿名登录成功:', loginResult);
+                        cloudInitialized = true;
+                    }
                 } catch (loginError) {
                     console.error('CloudBase 登录失败:', loginError);
 
-                    if (loginError.code === 'ACCESS_TOKEN_DISABLED') {
-                        alert('CloudBase 匿名登录未启用!\n\n请在腾讯云控制台:\n1. 开启"匿名登录"功能\n2. 设置数据库权限为 {"read": true, "write": true}\n3. 关闭跨域校验\n\n系统将使用本地存储模式。');
-                    } else {
-                        alert('CloudBase 登录失败: ' + loginError.message);
+                    let errorMessage = 'CloudBase 登录失败: ' + loginError.message;
+                    
+                    if (loginError.code === 'ACCESS_TOKEN_DISABLED' || loginError.message.includes('anonymous')) {
+                        errorMessage = '🚨 CloudBase 匿名登录未启用！\n\n请在腾讯云控制台进行以下配置：\n\n1. 点击左侧菜单"登录授权"\n2. 找到"匿名登录"选项\n3. 点击"编辑"\n4. 开启"启用匿名登录"开关\n5. 点击"保存"\n\n配置完成后，刷新页面重试。';
+                    } else if (loginError.code === 'PERMISSION_DENIED') {
+                        errorMessage = '🚨 数据库权限配置错误！\n\n请在腾讯云控制台进行以下配置：\n\n1. 点击左侧菜单"数据库"\n2. 选择需要修改的集合（venues/records/settings）\n3. 点击"权限设置"\n4. 修改权限规则为：\n\n{"read": true, "write": true}\n\n或\n\n{"read": "auth != null", "write": "auth != null"}\n\n5. 点击"保存"\n\n配置完成后，刷新页面重试。';
                     }
+                    
+                    alert(errorMessage);
                     useCloud = false;
-                    updateCloudSyncStatus('disconnected', '连接失败');
+                    updateCloudSyncStatus('disconnected', loginError.code === 'PERMISSION_DENIED' ? '权限不足' : '连接失败');
                     return false;
                 }
 
