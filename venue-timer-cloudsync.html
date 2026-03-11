@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>场地计时计费系统 - 云同步版</title>
     <!-- 腾讯云 CloudBase SDK v1.10.10 -->
-    <script src="https://imgcache.qq.com/qcloud/tcbjs/1.10.10/tcb.js"></script>
+    <script src="https://imgcache.qq.com/qcloud/tcbjs/2.9.0/tcb.js"></script>
     <style>
         * {
             margin: 0;
@@ -820,35 +820,45 @@
                     return false;
                 }
 
-                console.log('正在初始化 CloudBase...');
+                console.log('正在初始化 CloudBase (SDK 2.9.0)...');
+                
+                // 新版 SDK 初始化
                 app = tcb.init({
-                    env: ENV_ID
+                    env: ENV_ID,
+                    region: 'ap-shanghai' // 根据实际区域调整
                 });
 
-                // 匿名登录（使用新API）
+                // 获取 auth 实例
+                const auth = app.auth();
+                
+                // 尝试匿名登录
                 try {
-                    const auth = app.auth();
+                    console.log('正在尝试匿名登录...');
                     
-                    // 先检查是否已登录
-                    const loginState = await auth.getLoginState();
-                    if (loginState && loginState.isAnonymous) {
-                        console.log('CloudBase 已匿名登录:', loginState);
+                    // 使用新版 SDK 的匿名登录方法
+                    const loginResult = await auth.signInAnonymously();
+                    
+                    if (loginResult) {
+                        console.log('✅ CloudBase 匿名登录成功:', loginResult);
                         cloudInitialized = true;
+                        
+                        // 获取登录状态确认
+                        const loginState = await auth.getLoginState();
+                        if (loginState && loginState.isAnonymous) {
+                            console.log('✅ 匿名登录状态确认:', loginState);
+                        }
                     } else {
-                        // 尝试匿名登录
-                        const loginResult = await auth.signInAnonymously();
-                        console.log('CloudBase 匿名登录成功:', loginResult);
-                        cloudInitialized = true;
+                        throw new Error('匿名登录返回空结果');
                     }
                 } catch (loginError) {
-                    console.error('CloudBase 登录失败:', loginError);
+                    console.error('❌ CloudBase 登录失败:', loginError);
 
                     let errorMessage = 'CloudBase 登录失败: ' + loginError.message;
                     
-                    if (loginError.code === 'ACCESS_TOKEN_DISABLED' || loginError.message.includes('anonymous')) {
-                        errorMessage = '🚨 CloudBase 匿名登录未启用！\n\n请在腾讯云控制台进行以下配置：\n\n1. 点击左侧菜单"登录授权"\n2. 找到"匿名登录"选项\n3. 点击"编辑"\n4. 开启"启用匿名登录"开关\n5. 点击"保存"\n\n配置完成后，刷新页面重试。';
+                    if (loginError.code === 'ACCESS_TOKEN_DISABLED' || loginError.message.includes('anonymous') || loginError.message.includes('匿名登录')) {
+                        errorMessage = '🚨 CloudBase 匿名登录未启用！\n\n请在腾讯云控制台进行以下配置：\n\n1. 访问: https://console.cloud.tencent.com/tcb\n2. 选择环境: ' + ENV_ID + '\n3. 点击左侧菜单"登录授权"\n4. 找到"匿名登录"选项\n5. 点击"编辑"\n6. 开启"启用匿名登录"开关\n7. 点击"保存"\n\n配置完成后，刷新页面重试。';
                     } else if (loginError.code === 'PERMISSION_DENIED') {
-                        errorMessage = '🚨 数据库权限配置错误！\n\n请在腾讯云控制台进行以下配置：\n\n1. 点击左侧菜单"数据库"\n2. 选择需要修改的集合（venues/records/settings）\n3. 点击"权限设置"\n4. 修改权限规则为：\n\n{"read": true, "write": true}\n\n或\n\n{"read": "auth != null", "write": "auth != null"}\n\n5. 点击"保存"\n\n配置完成后，刷新页面重试。';
+                        errorMessage = '🚨 数据库权限配置错误！\n\n请在腾讯云控制台进行以下配置：\n\n1. 点击左侧菜单"数据库"\n2. 为以下集合设置权限：\n   - venues: {"read": true, "write": true}\n   - records: {"read": true, "write": true}\n   - settings: {"read": true, "write": true}\n3. 点击"保存"\n\n配置完成后，刷新页面重试。';
                     }
                     
                     alert(errorMessage);
